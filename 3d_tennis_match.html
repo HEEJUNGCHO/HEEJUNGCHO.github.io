@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Tennis Simulation</title>
+    <!-- A-Frame Library for 3D/VR -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 999;
+            pointer-events: none;
+            color: white;
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        #rally-counter {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ccff00;
+            margin-top: 10px;
+        }
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            display: flex;
+            gap: 15px;
+        }
+        button {
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+        }
+        button:hover {
+            background: white;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- UI Elements -->
+    <div id="ui-layer">
+        <h1>AI Tennis Match</h1>
+        <div id="rally-counter">Rally: 0</div>
+    </div>
+
+    <div id="controls">
+        <button onclick="changeCamera(0)">Spectator View</button>
+        <button onclick="changeCamera(1)">Player 1 POV</button>
+        <button onclick="changeCamera(2)">Broadcast View</button>
+    </div>
+
+    <!-- A-Frame Scene -->
+    <a-scene tennis-game background="color: #7EC0EE" shadow="type: pcfsoft">
+        
+        <!-- Lighting -->
+        <a-light type="ambient" color="#ffffff" intensity="0.5"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.7" position="-10 20 15" cast-shadow="true" shadow-mapSize="2048 2048"></a-light>
+
+        <!-- Grass Surroundings -->
+        <a-plane color="#388E3C" rotation="-90 0 0" width="150" height="150" receive-shadow="true"></a-plane>
+
+        <!-- Outer White Boundary (Creates the outer lines) -->
+        <a-plane color="#ffffff" rotation="-90 0 0" width="11.17" height="23.97" position="0 0.01 0" receive-shadow="true"></a-plane>
+
+        <!-- Inner Blue Court (Standard 10.97m x 23.77m) -->
+        <a-plane color="#1976D2" rotation="-90 0 0" width="10.97" height="23.77" position="0 0.015 0" receive-shadow="true"></a-plane>
+
+        <!-- Court Lines Group (Z-fighting prevention by raising slightly) -->
+        <a-entity id="court-lines" position="0 0.02 0">
+            <!-- Singles Sidelines -->
+            <a-plane color="#ffffff" width="0.1" height="23.77" rotation="-90 0 0" position="-4.115 0 0"></a-plane>
+            <a-plane color="#ffffff" width="0.1" height="23.77" rotation="-90 0 0" position="4.115 0 0"></a-plane>
+            
+            <!-- Service Lines -->
+            <a-plane color="#ffffff" width="8.23" height="0.1" rotation="-90 0 0" position="0 0 -6.4"></a-plane>
+            <a-plane color="#ffffff" width="8.23" height="0.1" rotation="-90 0 0" position="0 0 6.4"></a-plane>
+            
+            <!-- Center Service Line -->
+            <a-plane color="#ffffff" width="0.1" height="12.8" rotation="-90 0 0" position="0 0 0"></a-plane>
+
+            <!-- Center Baseline Marks -->
+            <a-plane color="#ffffff" width="0.1" height="0.3" rotation="-90 0 0" position="0 0 -11.735"></a-plane>
+            <a-plane color="#ffffff" width="0.1" height="0.3" rotation="-90 0 0" position="0 0 11.735"></a-plane>
+        </a-entity>
+
+        <!-- The Net -->
+        <a-entity id="net-group" position="0 0 0">
+            <!-- Net Posts -->
+            <a-cylinder color="#222222" radius="0.08" height="1.07" position="-5.485 0.535 0" cast-shadow="true"></a-cylinder>
+            <a-cylinder color="#222222" radius="0.08" height="1.07" position="5.485 0.535 0" cast-shadow="true"></a-cylinder>
+            <!-- Net Mesh (Wireframe representation) -->
+            <a-plane color="#eeeeee" opacity="0.6" width="10.97" height="0.9" position="0 0.45 0" material="side: double; wireframe: true"></a-plane>
+            <!-- White Top Band -->
+            <a-box color="#ffffff" width="10.97" height="0.06" depth="0.06" position="0 0.93 0"></a-box>
+        </a-entity>
+
+        <!-- Tennis Ball -->
+        <a-sphere id="ball" radius="0.08" color="#ccff00" position="0 1.5 11" cast-shadow="true"></a-sphere>
+
+        <!-- Player 1 (Red Racket) -->
+        <a-entity id="player1" position="0 1 12.5" cast-shadow="true">
+            <a-cylinder color="#333" radius="0.03" height="0.6" position="0 -0.4 0" rotation="10 0 0"></a-cylinder>
+            <a-torus color="#D32F2F" radius="0.25" radius-tubular="0.02" scale="1 1.3 1"></a-torus>
+            <a-circle color="#ffffff" radius="0.24" opacity="0.2" scale="1 1.3 1" material="side: double; wireframe: true"></a-circle>
+        </a-entity>
+
+        <!-- Player 2 (Blue Racket) -->
+        <a-entity id="player2" position="0 1 -12.5" cast-shadow="true">
+            <a-cylinder color="#333" radius="0.03" height="0.6" position="0 -0.4 0" rotation="-10 0 0"></a-cylinder>
+            <a-torus color="#1976D2" radius="0.25" radius-tubular="0.02" scale="1 1.3 1"></a-torus>
+            <a-circle color="#ffffff" radius="0.24" opacity="0.2" scale="1 1.3 1" material="side: double; wireframe: true"></a-circle>
+        </a-entity>
+
+        <!-- Camera Rig -->
+        <a-entity id="camera-rig" position="0 5 18">
+            <a-camera id="main-camera" rotation="-12 0 0"></a-camera>
+        </a-entity>
+
+    </a-scene>
+
+    <!-- Game Logic & Scripts -->
+    <script>
+        // Camera View Logic
+        const cameraRig = document.getElementById('camera-rig');
+        const camera = document.getElementById('main-camera');
+        
+        const views = [
+            { pos: '0 5 18', rot: '-12 0 0' },       // Spectator
+            { pos: '0 2.5 14.5', rot: '-5 0 0' },    // Player 1 POV
+            { pos: '15 10 0', rot: '-30 90 0' }      // Broadcast View
+        ];
+
+        function changeCamera(index) {
+            cameraRig.setAttribute('position', views[index].pos);
+            camera.setAttribute('rotation', views[index].rot);
+        }
+
+        // Core Tennis Game Component
+        AFRAME.registerComponent('tennis-game', {
+            init: function() {
+                this.ball = document.querySelector('#ball');
+                this.player1 = document.querySelector('#player1');
+                this.player2 = document.querySelector('#player2');
+                this.scoreDisplay = document.getElementById('rally-counter');
+
+                this.ballPos = new THREE.Vector3(0, 1.5, 12.2);
+                this.ballVel = new THREE.Vector3(0, 0, 0);
+                this.gravity = 14; 
+                this.rallyCount = 0;
+                
+                this.courtBoundsX = 4.115; // singles sideline
+                this.baselineZ = 12.2;     // Racket hit line
+
+                // Start the rally after 1 second
+                setTimeout(() => {
+                    this.hitBall(-1); // Serve from Player 1 to Player 2
+                }, 1000);
+            },
+
+            hitBall: function(direction) {
+                this.rallyCount++;
+                this.scoreDisplay.innerText = "Rally: " + this.rallyCount;
+
+                // Determine trajectory physics
+                let speedZ = 13 + Math.random() * 5; // Forward velocity (13-18m/s)
+                
+                // Target a random bounce spot inside the opponent's court
+                // Direction 1 = towards Player 1 (positive Z). Direction -1 = towards Player 2 (negative Z).
+                let targetZ = direction === 1 ? (4 + Math.random() * 7.5) : (-4 - Math.random() * 7.5); 
+                let targetX = (Math.random() - 0.5) * (this.courtBoundsX * 2 * 0.9); // Stay 90% within singles lines
+
+                let distanceZ = Math.abs(targetZ - this.ballPos.z);
+                let timeToBounce = distanceZ / speedZ;
+
+                // Set Velocities to perfectly hit the target bounce point
+                this.ballVel.x = (targetX - this.ballPos.x) / timeToBounce;
+                this.ballVel.z = direction * speedZ;
+                
+                // Calculate required Y velocity to reach ground level (0.08m) at exact bounce time
+                let targetY = 0.08;
+                this.ballVel.y = (targetY - this.ballPos.y + 0.5 * this.gravity * Math.pow(timeToBounce, 2)) / timeToBounce;
+            },
+
+            tick: function(t, dt) {
+                let delta = dt / 1000;
+                if (delta > 0.1) return; // Prevent physics explosions during lag/tab switching
+
+                // 1. Update Ball Physics
+                this.ballPos.x += this.ballVel.x * delta;
+                this.ballPos.y += this.ballVel.y * delta;
+                this.ballPos.z += this.ballVel.z * delta;
+                this.ballVel.y -= this.gravity * delta; // Apply Gravity
+
+                // 2. Handle Court Bounce
+                if (this.ballPos.y <= 0.08 && this.ballVel.y < 0) {
+                    this.ballPos.y = 0.08;
+                    this.ballVel.y = Math.abs(this.ballVel.y) * 0.82; // Bounce back up, lose 18% energy
+                }
+
+                // 3. Handle Racket Hits
+                // Player 2 Hit (Negative Z Side)
+                if (this.ballPos.z < -this.baselineZ && this.ballVel.z < 0) {
+                    this.ballPos.z = -this.baselineZ;
+                    this.hitBall(1);
+                }
+
+                // Player 1 Hit (Positive Z Side)
+                if (this.ballPos.z > this.baselineZ && this.ballVel.z > 0) {
+                    this.ballPos.z = this.baselineZ;
+                    this.hitBall(-1);
+                }
+
+                // Apply position to ball
+                this.ball.setAttribute('position', this.ballPos);
+
+                // 4. AI Player Movement & Animation
+                this.updatePlayer(this.player1, 1, delta);
+                this.updatePlayer(this.player2, -1, delta);
+            },
+
+            updatePlayer: function(playerEl, side, delta) {
+                let pos = playerEl.object3D.position;
+                let rot = playerEl.object3D.rotation;
+                
+                // Track ball's X position only if ball is coming towards this player's side
+                let isApproaching = (side === 1 && this.ballVel.z > 0) || (side === -1 && this.ballVel.z < 0);
+                let targetX = isApproaching ? this.ballPos.x : 0; // Return to center if not approaching
+                
+                // Smooth horizontal tracking
+                pos.x += (targetX - pos.x) * 6 * delta;
+
+                // Racket Swing Animation Logic
+                let distanceToBall = Math.abs(this.ballPos.z - pos.z);
+                
+                if (isApproaching && distanceToBall < 2.5) {
+                    // Swing forward as ball gets close
+                    let swingAmount = (2.5 - distanceToBall) / 2.5; 
+                    rot.x = (side === 1 ? -1 : 1) * (swingAmount * 1.5); 
+                    
+                    // Tilt slightly based on X distance to create a slicing look
+                    rot.y = (pos.x - this.ballPos.x) * (side === 1 ? -0.5 : 0.5);
+                } else {
+                    // Smoothly reset racket to idle position
+                    rot.x += (0 - rot.x) * 12 * delta;
+                    rot.y += (0 - rot.y) * 12 * delta;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
